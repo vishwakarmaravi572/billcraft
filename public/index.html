@@ -1,0 +1,1119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BillCraft — Smart Invoice Maker</title>
+<meta name="description" content="Smart invoice maker with Firebase Auth, Cloud Firestore sync, UPI QR codes, and PDF/image export." />
+<meta property="og:title" content="BillCraft — Smart Invoice Maker" />
+<meta property="og:description" content="Smart invoice maker with Firebase Auth, Cloud Firestore sync, UPI QR codes, and PDF/image export." />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{--bg:#f4f6fb;--panel:#fff;--ink:#172033;--muted:#667085;--line:#e4e8f0;--brand:#4f46e5;--brand2:#3730a3;--soft:#eef2ff;--green:#087f5b;--danger:#b42318;--danger-bg:#fff1f0;--shadow:0 12px 35px #18264b0d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer;border:0;border-radius:10px;padding:10px 14px;font-weight:650;transition:background 0.15s,opacity 0.15s}
+button:disabled{opacity:0.6;cursor:not-allowed}
+.primary{background:var(--brand);color:#fff}
+.primary:hover:not(:disabled){background:var(--brand2)}
+.secondary{background:#fff;border:1px solid var(--line);color:var(--ink)}
+.secondary:hover:not(:disabled){background:#f8fafc;border-color:#cbd5e1}
+.danger{color:var(--danger);background:var(--danger-bg)}
+.danger:hover:not(:disabled){background:#fee2e2}
+.shell{max-width:1280px;margin:auto;padding:22px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:11px}
+.mark{height:42px;width:42px;border-radius:13px;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:22px;font-weight:900;letter-spacing:-1px}
+.logo h1{font-size:19px;margin:0;line-height:1.2}
+.logo p{margin:2px 0 0;color:var(--muted);font-size:12px}
+.top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.auth-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;border-radius:99px;background:#fff;border:1px solid var(--line);color:var(--muted);font-weight:600}
+.auth-badge.online{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}
+.auth-badge .dot{width:8px;height:8px;border-radius:50%;background:#94a3b8}
+.auth-badge.online .dot{background:#10b981}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,.85fr);gap:20px;align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.panel-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fafbfe}
+.panel-head h2{font-size:16px;margin:0;font-weight:700}
+.panel-body{padding:20px}
+.section-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:800;margin:4px 0 12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.field label{font-size:12px;font-weight:700;color:#475467}
+.field input,.field textarea,.field select{width:100%;border:1px solid #d8deea;border-radius:10px;padding:9px 11px;background:#fff;outline:none;min-width:0}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--brand);box-shadow:0 0 0 3px #4f46e51a}
+.field textarea{resize:vertical;min-height:66px}
+.items{width:100%;border-collapse:collapse;font-size:13px}
+.items th{text-align:left;color:var(--muted);font-size:11px;padding:9px 5px;border-bottom:1px solid var(--line);text-transform:uppercase;letter-spacing:0.04em}
+.items td{padding:6px 4px;border-bottom:1px solid #edf0f5}
+.items input{width:100%;min-width:0;padding:8px 6px;border:1px solid #e0e5ee;border-radius:7px}
+.items .qty{width:64px}
+.items .rate{width:86px}
+.items .amt{white-space:nowrap;font-weight:700;text-align:right;padding-right:8px}
+.remove{padding:5px 8px;background:var(--danger-bg);color:var(--danger);line-height:1}
+.add-row{margin-top:12px}
+.totals{margin:18px 0 0 auto;max-width:290px}
+.total-line{display:flex;justify-content:space-between;padding:6px 0;color:var(--muted)}
+.total-line.grand{border-top:1px solid var(--line);margin-top:6px;padding-top:13px;font-size:20px;font-weight:850;color:var(--ink)}
+.preview-wrap{position:sticky;top:16px}
+.preview{background:white;color:#182230;padding:28px;min-height:600px}
+.inv-brand{font-size:24px;font-weight:900;letter-spacing:-.03em;overflow-wrap:anywhere}
+.inv-sub{color:#596579;font-size:12px;margin-top:4px;white-space:pre-line}
+.invoice-title{display:flex;justify-content:space-between;align-items:start;gap:12px;padding-bottom:18px;border-bottom:2px solid #202938}
+.pill{font-size:10px;letter-spacing:.08em;background:#eef2ff;color:#4338ca;padding:6px 9px;border-radius:99px;font-weight:800}
+.inv-meta{display:flex;justify-content:space-between;gap:12px;padding:16px 0;border-bottom:1px solid #edf0f5}
+.inv-meta b{display:block;font-size:11px;color:#718096;margin-bottom:3px;text-transform:uppercase}
+.inv-meta span{font-size:13px;white-space:pre-line}
+.preview .items{margin-top:12px}
+.preview .items th{color:#667085}
+.preview .items td{padding:10px 5px}
+.preview .items td:first-child{overflow-wrap:anywhere}
+.preview .totals{margin-top:18px}
+.payment{display:flex;align-items:center;gap:18px;border-top:1px dashed #cbd5e1;margin-top:24px;padding-top:18px}
+.qr{width:112px;height:112px;display:grid;place-items:center;flex-shrink:0;background:#fafbfe;border:1px solid #edf0f5;border-radius:8px;padding:4px}
+.qr img{max-width:104px;max-height:104px;display:block}
+.qr-note{font-size:11px;color:#667085;text-align:center}
+.thanks{text-align:center;margin-top:28px;padding-top:14px;border-top:1px solid #edf0f5;font-size:12px;color:#667085}
+.preview-foot{font-size:10px;color:#98a2b3;text-align:center;margin-top:6px}
+.notice{font-size:12px;color:var(--muted);margin-top:9px;line-height:1.4}
+.tabs{display:flex;gap:7px;margin-bottom:16px;flex-wrap:wrap}
+.tab{background:#fff;border:1px solid var(--line);color:var(--muted);padding:8px 14px}
+.tab.active{background:var(--soft);border-color:#c7d2fe;color:var(--brand2);font-weight:700}
+.history-list{display:grid;gap:10px}
+.history-item{border:1px solid var(--line);border-radius:12px;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff}
+.history-item strong{display:block;font-size:15px}
+.history-item small{color:var(--muted);font-size:12px}
+.empty{padding:40px 20px;text-align:center;color:var(--muted);background:#fafbfe;border-radius:12px;border:1px dashed var(--line)}
+.status{color:var(--green);font-size:12px;font-weight:700}
+.small{font-size:12px;color:var(--muted)}
+.hidden{display:none!important}
+.banner{border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.banner.info{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+.banner.success{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}
+.banner.error{background:#fff1f0;color:#991b1b;border:1px solid #fecaca}
+.banner.warning{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
+.sync-loader{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin 0.75s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.preview-wrap{position:static}.preview{padding:20px}.shell{padding:14px}.top{align-items:flex-start;flex-direction:column}.panel-body{padding:16px}}
+@media(max-width:460px){.grid2{grid-template-columns:1fr;gap:0}.preview{padding:15px}.inv-brand{font-size:20px}.items{font-size:11px}.items .qty{width:48px}.items .rate{width:64px}.top-actions button{padding:8px 10px;font-size:13px}}
+@media print{body{background:#fff}.shell{padding:0;max-width:none}.top,.editor-panel,.preview-head,.tabs,#authPanel,#bannerArea,.no-print{display:none!important}.layout{display:block}.preview-wrap{position:static}.panel{border:0;box-shadow:none}.preview{padding:8mm;min-height:0}.preview .items th,.preview .items td{padding:8px 4px}.payment{break-inside:avoid}.thanks{margin-top:18px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="top">
+ <div class="logo">
+  <div class="mark">B</div>
+  <div>
+   <h1>BillCraft</h1>
+   <p>Simple billing for everyday business</p>
+  </div>
+ </div>
+ <div class="top-actions">
+  <div id="authStatus" class="auth-badge"><span class="dot"></span><span>Cloud: Connecting...</span></div>
+  <button class="secondary" id="authOpenBtn">Login / Sign up</button>
+  <button class="secondary hidden" id="logoutBtn">Log out</button>
+  <button class="secondary" id="newBtn">＋ New bill</button>
+  <button class="secondary" id="historyBtn">Bill history</button>
+  <button class="secondary" id="imageBtn">Download bill image</button>
+  <button class="primary" id="printBtn">Print / Save PDF</button>
+ </div>
+</header>
+
+<div id="bannerArea"></div>
+
+<section id="authPanel" class="panel no-print hidden" style="margin-bottom:18px">
+ <div class="panel-head">
+  <h2>BillCraft Cloud Account</h2>
+  <button class="secondary" id="authCloseBtn" aria-label="Close auth dialog">✕ Close</button>
+ </div>
+ <div class="panel-body">
+  <p class="small" style="margin-top:0">Sign in with your Email or Google account to sync your invoices and shop business profile securely to Google Cloud Firestore (path: <code>users/{uid}/bills</code> and <code>users/{uid}/profile/business</code>).</p>
+  <div class="grid2">
+   <div class="field">
+    <label for="authEmail">Email Address</label>
+    <input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com">
+   </div>
+   <div class="field">
+    <label for="authPassword">Password (minimum 6 characters)</label>
+    <input id="authPassword" type="password" autocomplete="current-password" placeholder="••••••••">
+   </div>
+  </div>
+  <div class="top-actions" style="margin-top:6px">
+   <button class="primary" id="loginBtn">Log in</button>
+   <button class="secondary" id="signupBtn">Create account</button>
+   <button class="secondary" id="googleBtn">Continue with Google</button>
+   <button class="secondary" id="resetPasswordBtn">Reset password</button>
+  </div>
+  <p id="authMessage" class="notice" role="status" style="min-height:18px;margin-top:12px;font-weight:600"></p>
+ </div>
+</section>
+
+<div class="tabs no-print">
+ <button class="tab active" data-tab="create">Create bill</button>
+ <button class="tab" data-tab="history">Bill history (<span id="historyCount">0</span>)</button>
+ <button class="tab" data-tab="settings">Shop settings</button>
+</div>
+
+<section id="createView">
+<div class="layout">
+<div class="panel editor-panel">
+ <div class="panel-head">
+  <h2>Build your invoice</h2>
+  <span class="status">● Auto-calculating</span>
+ </div>
+ <div class="panel-body">
+  <div class="section-title">Shop profile (Your business)</div>
+  <div class="grid2">
+   <div class="field"><label for="company">Company / shop name *</label><input id="company" placeholder="Your shop name"></div>
+   <div class="field"><label for="phone">Shop phone (optional)</label><input id="phone" placeholder="+91 …"></div>
+  </div>
+  <div class="field"><label for="address">Shop address</label><textarea id="address" placeholder="Shop address"></textarea></div>
+  <div class="grid2">
+   <div class="field"><label for="billNo">Bill number *</label><input id="billNo"></div>
+   <div class="field"><label for="billDate">Bill date</label><input id="billDate" type="date"></div>
+  </div>
+
+  <div class="section-title">Customer details (Direct entry)</div>
+  <div class="grid2">
+   <div class="field"><label for="customer">Customer name</label><input id="customer" placeholder="Customer or business name"></div>
+   <div class="field"><label for="customerPhone">Customer phone</label><input id="customerPhone" placeholder="Phone number"></div>
+  </div>
+  <div class="field"><label for="customerAddress">Customer address</label><textarea id="customerAddress" placeholder="Customer address / location"></textarea></div>
+
+  <div class="section-title">Items</div>
+  <div style="overflow-x:auto">
+   <table class="items">
+    <thead>
+     <tr>
+      <th style="width:38%">Description</th>
+      <th style="width:16%">Qty</th>
+      <th style="width:20%">Rate (₹)</th>
+      <th style="text-align:right">Amount</th>
+      <th style="width:40px"></th>
+     </tr>
+    </thead>
+    <tbody id="itemRows"></tbody>
+   </table>
+  </div>
+  <button class="secondary add-row" id="addItem">＋ Add item</button>
+
+  <div class="grid2" style="margin-top:18px">
+   <div class="field">
+    <label for="discountType">Discount type</label>
+    <select id="discountType">
+     <option value="amount">Fixed amount (₹)</option>
+     <option value="percent">Percentage (%)</option>
+    </select>
+   </div>
+   <div class="field"><label for="discount">Discount value</label><input id="discount" type="number" min="0" step="any" value="0"></div>
+  </div>
+
+  <div class="section-title">UPI payment QR</div>
+  <div class="grid2">
+   <div class="field"><label for="upi">UPI ID</label><input id="upi" placeholder="yourname@bank or 9876543210@upi"></div>
+   <div class="field">
+    <label for="qrAmount">QR amount</label>
+    <select id="qrAmount">
+     <option value="total">Use bill grand total</option>
+     <option value="custom">Custom amount</option>
+     <option value="none">No amount in QR (payer types amount)</option>
+    </select>
+   </div>
+  </div>
+  <div class="field hidden" id="customAmountWrap">
+   <label for="customAmount">Custom payment amount (₹)</label>
+   <input id="customAmount" type="number" min="1" step=".01" placeholder="0.00">
+  </div>
+  <div class="notice">Customers can scan the QR code using Google Pay, PhonePe, Paytm, BHIM, or any UPI app. Verify all incoming payments directly in your UPI account.</div>
+
+  <div class="top-actions" style="margin-top:18px">
+   <button class="primary" id="saveBtn">Save bill</button>
+   <button class="secondary" id="downloadBtn">Download invoice HTML</button>
+  </div>
+ </div>
+</div>
+
+<div class="panel preview-wrap">
+ <div class="panel-head preview-head">
+  <h2>Live preview</h2>
+  <span class="small">Print-ready A4</span>
+ </div>
+ <div class="preview" id="invoice">
+  <div class="invoice-title">
+   <div>
+    <div class="inv-brand" id="pCompany">YOUR SHOP NAME</div>
+    <div class="inv-sub" id="pAddress">Your shop address</div>
+    <div class="inv-sub" id="pPhone"></div>
+   </div>
+   <div style="text-align:right">
+    <span class="pill">PAYMENT BILL</span>
+    <div style="margin-top:12px;font-size:12px;line-height:1.6">
+     <b>Bill no.</b> <span id="pBillNo">INV-0001</span><br>
+     <b>Date</b> <span id="pDate"></span>
+    </div>
+   </div>
+  </div>
+
+  <div class="inv-meta">
+   <div>
+    <b>Bill to</b>
+    <span id="pCustomer">Walk-in customer</span>
+    <div class="inv-sub" id="pCustomerExtra"></div>
+   </div>
+   <div style="text-align:right">
+    <b>Payment Mode</b>
+    <span id="pPayment">Cash / UPI</span>
+   </div>
+  </div>
+
+  <table class="items">
+   <thead>
+    <tr>
+     <th style="width:7%">#</th>
+     <th>Description</th>
+     <th style="width:14%">Qty</th>
+     <th style="width:20%">Rate</th>
+     <th style="text-align:right;width:24%">Amount</th>
+    </tr>
+   </thead>
+   <tbody id="pRows"></tbody>
+  </table>
+
+  <div class="totals">
+   <div class="total-line">
+    <span>Subtotal</span>
+    <strong id="pSubtotal">₹0.00</strong>
+   </div>
+   <div class="total-line">
+    <span id="pDiscountLabel">Discount</span>
+    <strong id="pDiscount">− ₹0.00</strong>
+   </div>
+   <div class="total-line grand">
+    <span>Total</span>
+    <span id="pTotal">₹0.00</span>
+   </div>
+  </div>
+
+  <div class="payment">
+   <div class="qr" id="qrBox">
+    <span class="qr-note">Enter UPI ID<br>to generate QR</span>
+   </div>
+   <div>
+    <strong>Scan to pay with any UPI app</strong>
+    <div id="pUpi" style="font-size:12px;margin-top:4px;overflow-wrap:anywhere;font-family:monospace;font-weight:700">UPI ID not added</div>
+    <div class="qr-note" id="pQrAmount" style="margin-top:4px">Payment QR will appear here</div>
+   </div>
+  </div>
+
+  <div class="thanks">
+   Thank you for your business!
+   <div class="preview-foot">Please verify payment confirmation in your UPI app.</div>
+  </div>
+ </div>
+</div>
+</div>
+</section>
+
+<section id="historyView" class="panel hidden">
+ <div class="panel-head">
+  <h2>Saved bills</h2>
+  <div style="display:flex;gap:8px">
+   <button class="secondary" id="syncHistoryBtn" title="Sync now with Cloud Firestore">🔄 Refresh Cloud</button>
+   <button class="secondary" id="exportHistory">Export history JSON</button>
+  </div>
+ </div>
+ <div class="panel-body">
+  <div id="historyList" class="history-list"></div>
+ </div>
+</section>
+
+<section id="settingsView" class="panel hidden">
+ <div class="panel-head">
+  <h2>Shop settings</h2>
+  <span class="small" id="settingsSyncNote">Default shop profile</span>
+ </div>
+ <div class="panel-body">
+  <div class="section-title">Default shop profile (1 per account)</div>
+  <p class="small" style="margin-top:0">This default profile is stored at <code>users/{uid}/profile/business</code> in Cloud Firestore and auto-fills newly created bills.</p>
+  <div class="grid2">
+   <div class="field"><label for="sCompany">Company / shop name *</label><input id="sCompany" placeholder="Your business name"></div>
+   <div class="field"><label for="sPhone">Phone</label><input id="sPhone" placeholder="+91 …"></div>
+  </div>
+  <div class="field"><label for="sAddress">Address</label><textarea id="sAddress" placeholder="Shop location / address"></textarea></div>
+  <div class="field"><label for="sUpi">Default UPI ID</label><input id="sUpi" placeholder="yourname@bank"></div>
+  <div class="top-actions" style="margin-top:14px">
+   <button class="primary" id="saveSettings">Save settings</button>
+   <button class="secondary" id="useSettings">Use for current bill</button>
+  </div>
+ </div>
+</section>
+</div>
+
+<!-- Main Application & Billing Script -->
+<script>
+const $ = id => document.getElementById(id);
+const money = n => '₹' + (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const today = () => new Date().toISOString().slice(0, 10);
+
+let itemCount = 0;
+let savedBills = JSON.parse(localStorage.getItem('billcraft_bills') || '[]');
+let settings = JSON.parse(localStorage.getItem('billcraft_settings') || '{}');
+let activeEditCloudId = null;
+
+function showBanner(msg, type = 'info', durationMs = 4000) {
+  const area = $('bannerArea');
+  if (!area) return;
+  const div = document.createElement('div');
+  div.className = `banner ${type}`;
+  div.innerHTML = `<span>${esc(msg)}</span><button style="background:none;border:0;cursor:pointer;padding:0 4px;font-size:16px;color:inherit" onclick="this.parentElement.remove()">✕</button>`;
+  area.appendChild(div);
+  if (durationMs > 0) {
+    setTimeout(() => { if (div.parentElement) div.remove(); }, durationMs);
+  }
+}
+
+function updateHistoryBadge() {
+  const el = $('historyCount');
+  if (el) el.textContent = String(savedBills.length);
+}
+
+function nextBill() {
+  return 'INV-' + String(savedBills.length + 1).padStart(4, '0');
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function addItem(desc = '', qty = 1, rate = 0) {
+  itemCount++;
+  const tr = document.createElement('tr');
+  tr.dataset.id = itemCount;
+  tr.innerHTML = `<td><input class="desc" aria-label="Item description" placeholder="Item name" value="${esc(desc)}"></td><td><input class="qty" aria-label="Quantity" type="number" min="0" step="any" value="${qty}"></td><td><input class="rate" aria-label="Rate" type="number" min="0" step=".01" value="${rate}"></td><td class="amt">₹0.00</td><td><button class="remove" title="Remove item">×</button></td>`;
+  $('itemRows').appendChild(tr);
+  tr.querySelectorAll('input').forEach(i => i.addEventListener('input', render));
+  tr.querySelector('.remove').onclick = () => { tr.remove(); render(); };
+  render();
+}
+
+function getItems() {
+  return [...$('itemRows').querySelectorAll('tr')].map(tr => ({
+    description: tr.querySelector('.desc').value.trim(),
+    qty: Math.max(0, Number(tr.querySelector('.qty').value) || 0),
+    rate: Math.max(0, Number(tr.querySelector('.rate').value) || 0)
+  }));
+}
+
+function calc() {
+  const items = getItems();
+  const subtotal = items.reduce((s, i) => s + i.qty * i.rate, 0);
+  const v = Math.max(0, Number($('discount').value) || 0);
+  const discountType = $('discountType').value;
+  const discount = discountType === 'percent' ? (subtotal * Math.min(v, 100) / 100) : Math.min(v, subtotal);
+  return { items, subtotal, discount, total: Math.max(0, subtotal - discount) };
+}
+
+function render() {
+  const c = calc();
+  [...$('itemRows').querySelectorAll('tr')].forEach((tr, i) => {
+    tr.querySelector('.amt').textContent = money(c.items[i].qty * c.items[i].rate);
+  });
+  $('pCompany').textContent = $('company').value.trim() || 'YOUR SHOP NAME';
+  $('pAddress').textContent = $('address').value.trim() || 'Your shop address';
+  $('pPhone').textContent = $('phone').value.trim();
+  $('pBillNo').textContent = $('billNo').value || '—';
+  $('pDate').textContent = $('billDate').value || today();
+  $('pCustomer').textContent = $('customer').value.trim() || 'Walk-in customer';
+  $('pCustomerExtra').textContent = [$('customerPhone').value.trim(), $('customerAddress').value.trim()].filter(Boolean).join('\n');
+  $('pRows').innerHTML = c.items.map((i, n) => `<tr><td>${n + 1}</td><td>${esc(i.description || '—')}</td><td>${i.qty}</td><td>${money(i.rate)}</td><td style="text-align:right">${money(i.qty * i.rate)}</td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:#98a2b3;padding:18px 0">Add items to your bill</td></tr>';
+  $('pSubtotal').textContent = money(c.subtotal);
+  $('pDiscount').textContent = '− ' + money(c.discount);
+  $('pDiscountLabel').textContent = $('discountType').value === 'percent' ? 'Discount (' + (Number($('discount').value) || 0) + '%)' : 'Discount';
+  $('pTotal').textContent = money(c.total);
+  $('customAmountWrap').classList.toggle('hidden', $('qrAmount').value !== 'custom');
+  $('pPayment').textContent = $('upi').value.trim() ? 'UPI / Cash' : 'Cash / Other';
+  $('pUpi').textContent = $('upi').value.trim() || 'UPI ID not added';
+  makeQR(c.total);
+}
+
+let lastQR = '';
+function makeQR(total) {
+  const upi = $('upi').value.trim();
+  const mode = $('qrAmount').value;
+  const amount = mode === 'custom' ? (Number($('customAmount').value) || 0) : mode === 'total' ? total : 0;
+  const name = $('company').value.trim() || 'Shop';
+  const payload = upi ? `upi://pay?pa=${encodeURIComponent(upi)}&pn=${encodeURIComponent(name)}${amount > 0 ? '&am=' + amount.toFixed(2) : ''}&cu=INR` : '';
+  if (payload === lastQR) return;
+  lastQR = payload;
+  $('qrBox').innerHTML = '';
+  $('pQrAmount').textContent = upi ? (amount > 0 ? 'Amount: ' + money(amount) : 'Enter amount in payment app') : 'Payment QR will appear here';
+  if (!upi) {
+    $('qrBox').innerHTML = '<span class="qr-note">Enter UPI ID<br>to generate QR</span>';
+    return;
+  }
+  if (window.QRCode) {
+    try {
+      new QRCode($('qrBox'), {
+        text: payload,
+        width: 104,
+        height: 104,
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } catch (e) {
+      console.warn('QRCode generation failed', e);
+      $('qrBox').innerHTML = '<span class="qr-note">QR code error</span>';
+    }
+  } else {
+    $('qrBox').innerHTML = '<span class="qr-note">QR library needs<br>internet access</span>';
+  }
+}
+
+function getData() {
+  const c = calc();
+  return {
+    company: $('company').value.trim(),
+    address: $('address').value.trim(),
+    phone: $('phone').value.trim(),
+    billNo: $('billNo').value.trim(),
+    date: $('billDate').value || today(),
+    customer: $('customer').value.trim(),
+    customerPhone: $('customerPhone').value.trim(),
+    customerAddress: $('customerAddress').value.trim(),
+    items: c.items,
+    subtotal: c.subtotal,
+    discount: c.discount,
+    discountType: $('discountType').value,
+    total: c.total,
+    upi: $('upi').value.trim(),
+    cloudId: activeEditCloudId || undefined
+  };
+}
+
+async function saveBill() {
+  const d = getData();
+  if (!d.company) {
+    alert('Please enter your Company / Shop name first.');
+    $('company').focus();
+    return;
+  }
+  if (!d.billNo) {
+    alert('Please specify a Bill Number.');
+    $('billNo').focus();
+    return;
+  }
+  if (!d.items.length || !d.items.some(i => i.description)) {
+    if (!confirm('No items with descriptions added. Save this bill anyway?')) return;
+  }
+
+  const saveBtn = $('saveBtn');
+  const originalText = saveBtn.textContent;
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<span class="sync-loader"></span> Saving...';
+
+  try {
+    let cloudId = d.cloudId;
+    if (window.BillCraftCloud?.currentUser) {
+      cloudId = await window.BillCraftCloud.saveBill(d);
+      d.cloudId = cloudId;
+      activeEditCloudId = cloudId;
+      showBanner(`Bill ${d.billNo} saved & synced to Cloud Firestore!`, 'success');
+    } else {
+      showBanner(`Bill ${d.billNo} saved locally on this device. Log in to sync to the cloud.`, 'info');
+    }
+
+    const idx = savedBills.findIndex(x => (cloudId && x.cloudId === cloudId) || x.billNo === d.billNo);
+    if (idx >= 0) {
+      savedBills[idx] = { ...d, cloudId };
+    } else {
+      savedBills.unshift({ ...d, cloudId });
+    }
+    localStorage.setItem('billcraft_bills', JSON.stringify(savedBills));
+    updateHistoryBadge();
+    renderHistory();
+  } catch (err) {
+    console.error('Save bill failed:', err);
+    showBanner('Cloud sync error: ' + (err.message || 'Check Firestore permissions'), 'error');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = originalText;
+  }
+}
+
+function renderHistory() {
+  const el = $('historyList');
+  updateHistoryBadge();
+  if (!savedBills.length) {
+    el.innerHTML = '<div class="empty">No saved bills found.<br>Create your first bill and click "Save bill".</div>';
+    return;
+  }
+  el.innerHTML = savedBills.map((b, i) => `
+    <div class="history-item">
+      <div>
+        <strong>${esc(b.company || 'Shop')} · ${esc(b.billNo || 'No number')} ${b.cloudId ? '<span title="Synced to Firestore" style="color:#087f5b;font-size:12px;margin-left:4px">☁</span>' : ''}</strong>
+        <small>${esc(b.date || '')} · ${esc(b.customer || 'Walk-in customer')} · ${money(b.total)}</small>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="secondary" data-load="${i}">Open</button>
+        <button class="danger" data-del="${i}">Delete</button>
+      </div>
+    </div>
+  `).join('');
+
+  el.querySelectorAll('[data-load]').forEach(b => {
+    b.onclick = () => loadBill(savedBills[+b.dataset.load]);
+  });
+  el.querySelectorAll('[data-del]').forEach(b => {
+    b.onclick = async () => {
+      const idx = +b.dataset.del;
+      const target = savedBills[idx];
+      if (confirm(`Delete bill "${target.billNo || 'selected'}"?`)) {
+        savedBills.splice(idx, 1);
+        localStorage.setItem('billcraft_bills', JSON.stringify(savedBills));
+        renderHistory();
+        if (target.cloudId && window.BillCraftCloud?.currentUser) {
+          try {
+            await window.BillCraftCloud.deleteBill(target.cloudId);
+            showBanner(`Bill ${target.billNo} deleted from Cloud Firestore.`, 'info');
+          } catch (e) {
+            showBanner('Deleted locally, but cloud delete failed: ' + e.message, 'warning');
+          }
+        }
+      }
+    };
+  });
+}
+
+function loadBill(d) {
+  activeEditCloudId = d.cloudId || null;
+  ['company', 'address', 'phone', 'billNo', 'billDate', 'customer', 'customerPhone', 'customerAddress', 'upi'].forEach(k => {
+    if ($(k)) $(k).value = d[k] || '';
+  });
+  $('itemRows').innerHTML = '';
+  (d.items && d.items.length ? d.items : [{ description: '', qty: 1, rate: 0 }]).forEach(i => {
+    addItem(i.description, i.qty, i.rate);
+  });
+  $('discount').value = d.discount || 0;
+  $('discountType').value = d.discountType || 'amount';
+  render();
+  showTab('create');
+  showBanner(`Loaded bill ${d.billNo}`, 'info', 2500);
+}
+
+function showTab(tab) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  $('createView').classList.toggle('hidden', tab !== 'create');
+  $('historyView').classList.toggle('hidden', tab !== 'history');
+  $('settingsView').classList.toggle('hidden', tab !== 'settings');
+  if (tab === 'history') renderHistory();
+}
+
+function reset() {
+  activeEditCloudId = null;
+  ['customer', 'customerPhone', 'customerAddress'].forEach(k => { if ($(k)) $(k).value = ''; });
+  $('billNo').value = nextBill();
+  $('billDate').value = today();
+  $('discount').value = 0;
+  $('discountType').value = 'amount';
+  $('itemRows').innerHTML = '';
+  addItem();
+  if (settings.company) {
+    if (!$('company').value.trim()) $('company').value = settings.company;
+    if (!$('address').value.trim()) $('address').value = settings.address || '';
+    if (!$('phone').value.trim()) $('phone').value = settings.phone || '';
+    if (!$('upi').value.trim()) $('upi').value = settings.upi || '';
+  }
+  render();
+}
+
+async function saveSettings() {
+  const saveBtn = $('saveSettings');
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<span class="sync-loader"></span> Saving...';
+
+  settings = {
+    company: $('sCompany').value.trim(),
+    address: $('sAddress').value.trim(),
+    phone: $('sPhone').value.trim(),
+    upi: $('sUpi').value.trim()
+  };
+  localStorage.setItem('billcraft_settings', JSON.stringify(settings));
+
+  try {
+    if (window.BillCraftCloud?.currentUser) {
+      await window.BillCraftCloud.saveSettings(settings);
+      showBanner('Default shop profile saved & synced to users/{uid}/profile/business!', 'success');
+    } else {
+      showBanner('Shop settings saved on this device. Sign in to sync across devices.', 'info');
+    }
+  } catch (e) {
+    showBanner('Saved on device, but cloud sync failed: ' + e.message, 'error');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save settings';
+  }
+}
+
+function useSettings() {
+  ['company', 'address', 'phone', 'upi'].forEach(k => {
+    if ($(k)) $(k).value = settings[k] || '';
+  });
+  render();
+  showTab('create');
+  showBanner('Applied default shop profile to invoice.', 'info', 2500);
+}
+
+async function downloadImage() {
+  if (!window.html2canvas) {
+    alert('Image export library (html2canvas) is loading or unavailable.');
+    return;
+  }
+  const target = $('invoice');
+  try {
+    showBanner('Generating bill image...', 'info', 2000);
+    const canvas = await html2canvas(target, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+    const a = document.createElement('a');
+    a.download = ($('billNo').value || 'invoice') + '.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  } catch (e) {
+    alert('Could not create invoice image: ' + (e.message || 'Please use Print / Save PDF.'));
+  }
+}
+
+function downloadCleanInvoiceHTML() {
+  const clone = $('invoice').cloneNode(true);
+  const billTitle = $('billNo').value || 'Invoice';
+  const doc = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Invoice - ${esc(billTitle)}</title>
+<style>
+body{font:14px/1.5 Arial,sans-serif;padding:30px;color:#182230;background:#fff;max-width:800px;margin:auto}
+.inv-brand{font-size:24px;font-weight:900}
+.inv-sub{color:#596579;font-size:12px;margin-top:4px;white-space:pre-line}
+.invoice-title{display:flex;justify-content:space-between;align-items:start;padding-bottom:18px;border-bottom:2px solid #202938}
+.pill{font-size:10px;background:#eef2ff;color:#4338ca;padding:4px 8px;border-radius:99px;font-weight:800}
+.inv-meta{display:flex;justify-content:space-between;padding:16px 0;border-bottom:1px solid #edf0f5}
+.items{width:100%;border-collapse:collapse;margin-top:16px}
+.items th,.items td{border-bottom:1px solid #edf0f5;padding:10px 6px;text-align:left}
+.totals{margin:20px 0 0 auto;max-width:280px}
+.total-line{display:flex;justify-content:space-between;padding:6px 0}
+.grand{font-size:18px;font-weight:bold;border-top:1px solid #202938;margin-top:6px;padding-top:10px}
+.payment{display:flex;align-items:center;gap:18px;margin-top:24px;padding-top:18px;border-top:1px dashed #cbd5e1}
+.qr img{max-width:112px;display:block}
+.thanks{text-align:center;margin-top:30px;font-size:12px;color:#667085}
+@media print{body{padding:0}}
+</style>
+</head>
+<body>
+${clone.outerHTML}
+</body>
+</html>`;
+  const blob = new Blob([doc], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (billTitle) + '.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Event bindings
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+$('historyBtn').onclick = () => showTab('history');
+$('newBtn').onclick = () => { reset(); showTab('create'); };
+$('printBtn').onclick = () => window.print();
+$('imageBtn').onclick = downloadImage;
+$('addItem').onclick = () => addItem();
+$('saveBtn').onclick = saveBill;
+$('downloadBtn').onclick = downloadCleanInvoiceHTML;
+$('saveSettings').onclick = saveSettings;
+$('useSettings').onclick = useSettings;
+$('exportHistory').onclick = () => {
+  const blob = new Blob([JSON.stringify(savedBills, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'billcraft-backup-' + today() + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+['company', 'address', 'phone', 'billNo', 'billDate', 'customer', 'customerPhone', 'customerAddress', 'discount', 'discountType', 'upi', 'qrAmount', 'customAmount'].forEach(k => {
+  if ($(k)) $(k).addEventListener('input', render);
+});
+$('qrAmount').addEventListener('change', render);
+
+if (settings.company) {
+  $('company').value = settings.company;
+  $('address').value = settings.address || '';
+  $('phone').value = settings.phone || '';
+  $('upi').value = settings.upi || '';
+}
+$('sCompany').value = settings.company || '';
+$('sAddress').value = settings.address || '';
+$('sPhone').value = settings.phone || '';
+$('sUpi').value = settings.upi || '';
+
+reset();
+renderHistory();
+</script>
+
+<!-- Firebase Authentication & Cloud Firestore Integration Module -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js';
+import { 
+  getAuth, 
+  onAuthStateChanged, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signOut, 
+  sendPasswordResetEmail 
+} from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js';
+import { 
+  getFirestore, 
+  collection, 
+  doc, 
+  getDoc, 
+  getDocs, 
+  setDoc, 
+  addDoc, 
+  deleteDoc, 
+  query, 
+  orderBy, 
+  serverTimestamp 
+} from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js';
+
+// Firebase configuration from uploaded project
+const firebaseConfig = {
+  apiKey: "AIzaSyCfgINxOQSYpQnGh9k7z0jAF6J0O6XmEAQ",
+  authDomain: "billcraft-2f79d.firebaseapp.com",
+  projectId: "billcraft-2f79d",
+  storageBucket: "billcraft-2f79d.firebasestorage.app",
+  messagingSenderId: "828327998699",
+  appId: "1:828327998699:web:2ba2a60938cc3a4ee83aae"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const el = id => document.getElementById(id);
+const say = (t, isError = false) => {
+  const m = el('authMessage');
+  if (m) {
+    m.textContent = t;
+    m.style.color = isError ? 'var(--danger)' : 'var(--green)';
+  }
+};
+
+const billsCol = uid => collection(db, 'users', uid, 'bills');
+const profileRef = uid => doc(db, 'users', uid, 'profile', 'business');
+
+function parseFirebaseError(err) {
+  const code = err?.code || '';
+  switch (code) {
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+      return 'Invalid email or password. Please verify and try again.';
+    case 'auth/email-already-in-use':
+      return 'An account already exists with this email address.';
+    case 'auth/weak-password':
+      return 'Password should be at least 6 characters long.';
+    case 'auth/popup-closed-by-user':
+      return 'Google sign-in popup was closed before completing.';
+    case 'auth/popup-blocked':
+      return 'Sign-in popup was blocked by browser. Please allow popups.';
+    case 'auth/network-request-failed':
+      return 'Network connection failed. Please check your internet.';
+    case 'permission-denied':
+      return 'Firestore permission denied. Ensure you are signed in to access your bills.';
+    default:
+      return err?.message || 'Authentication error occurred.';
+  }
+}
+
+// Global Cloud Bridge Object
+const cloud = {
+  currentUser: null,
+
+  async saveBill(bill) {
+    if (!auth.currentUser) throw new Error('Please sign in to save to your cloud account.');
+    const uid = auth.currentUser.uid;
+    const payload = {
+      billNo: bill.billNo || 'INV-0001',
+      date: bill.date || today(),
+      company: bill.company || 'Shop',
+      address: bill.address || '',
+      phone: bill.phone || '',
+      upi: bill.upi || '',
+      customer: bill.customer || '',
+      customerPhone: bill.customerPhone || '',
+      customerAddress: bill.customerAddress || '',
+      items: (bill.items || []).map(i => ({
+        description: String(i.description || ''),
+        qty: Number(i.qty) || 0,
+        rate: Number(i.rate) || 0
+      })),
+      subtotal: Number(bill.subtotal) || 0,
+      discount: Number(bill.discount) || 0,
+      discountType: bill.discountType || 'amount',
+      total: Number(bill.total) || 0,
+      ownerUid: uid,
+      updatedAt: serverTimestamp()
+    };
+
+    if (bill.cloudId) {
+      const ref = doc(db, 'users', uid, 'bills', bill.cloudId);
+      await setDoc(ref, payload, { merge: true });
+      return bill.cloudId;
+    } else {
+      payload.createdAt = serverTimestamp();
+      const ref = await addDoc(billsCol(uid), payload);
+      return ref.id;
+    }
+  },
+
+  async deleteBill(cloudId) {
+    if (!auth.currentUser || !cloudId) return;
+    await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'bills', cloudId));
+  },
+
+  async saveSettings(settingsData) {
+    if (!auth.currentUser) throw new Error('Please sign in to sync default settings.');
+    const uid = auth.currentUser.uid;
+    const payload = {
+      company: settingsData.company || '',
+      address: settingsData.address || '',
+      phone: settingsData.phone || '',
+      upi: settingsData.upi || '',
+      ownerUid: uid,
+      updatedAt: serverTimestamp()
+    };
+    await setDoc(profileRef(uid), payload, { merge: true });
+  },
+
+  async fetchUserData(user) {
+    if (!user) return;
+    try {
+      let billsSnap;
+      try {
+        billsSnap = await getDocs(query(billsCol(user.uid), orderBy('createdAt', 'desc')));
+      } catch (orderErr) {
+        console.warn('Falling back to unindexed query:', orderErr);
+        billsSnap = await getDocs(billsCol(user.uid));
+      }
+
+      const cloudBills = billsSnap.docs.map(d => ({
+        ...d.data(),
+        cloudId: d.id
+      }));
+
+      cloudBills.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+      savedBills = cloudBills;
+      localStorage.setItem('billcraft_bills', JSON.stringify(savedBills));
+      if (typeof renderHistory === 'function') renderHistory();
+
+      const profSnap = await getDoc(profileRef(user.uid));
+      if (profSnap.exists()) {
+        const ps = profSnap.data();
+        if (ps && ps.company) {
+          settings = {
+            company: ps.company || '',
+            address: ps.address || '',
+            phone: ps.phone || '',
+            upi: ps.upi || ''
+          };
+          localStorage.setItem('billcraft_settings', JSON.stringify(settings));
+
+          ['Company', 'Address', 'Phone', 'Upi'].forEach(k => {
+            const elIn = el('s' + k);
+            if (elIn) elIn.value = settings[k.toLowerCase()] || '';
+          });
+
+          const currCompany = el('company');
+          if (currCompany && !currCompany.value.trim()) {
+            ['company', 'address', 'phone', 'upi'].forEach(k => {
+              const x = el(k);
+              if (x) x.value = settings[k] || '';
+            });
+            if (typeof render === 'function') render();
+          }
+        }
+      }
+
+      showBanner(`Synced ${cloudBills.length} cloud bills for ${user.email || 'your account'}.`, 'success', 3000);
+      say('Cloud sync active: All bills & shop profile are isolated to your account.');
+    } catch (e) {
+      console.error('Error fetching cloud user data:', e);
+      say('Cloud sync error: ' + parseFirebaseError(e), true);
+      showBanner('Failed to load cloud data: ' + parseFirebaseError(e), 'error');
+    }
+  }
+};
+
+window.BillCraftCloud = cloud;
+
+onAuthStateChanged(auth, async user => {
+  cloud.currentUser = user;
+  const statusEl = el('authStatus');
+  const authOpenBtn = el('authOpenBtn');
+  const logoutBtn = el('logoutBtn');
+  const settingsNote = el('settingsSyncNote');
+
+  if (user) {
+    statusEl.className = 'auth-badge online';
+    statusEl.innerHTML = `<span class="dot"></span><span>Signed in: ${esc(user.email || 'Google User')}</span>`;
+    authOpenBtn.classList.add('hidden');
+    logoutBtn.classList.remove('hidden');
+    if (settingsNote) settingsNote.textContent = `Synced to cloud for ${user.email || 'account'}`;
+    await cloud.fetchUserData(user);
+  } else {
+    statusEl.className = 'auth-badge';
+    statusEl.innerHTML = `<span class="dot"></span><span>Cloud: Not connected (local only)</span>`;
+    authOpenBtn.classList.remove('hidden');
+    logoutBtn.classList.add('hidden');
+    if (settingsNote) settingsNote.textContent = 'Stored locally on this device';
+    say('Signed out. Local mode active.');
+  }
+});
+
+el('authOpenBtn').onclick = () => {
+  el('authPanel').classList.remove('hidden');
+  say('');
+  el('authEmail').focus();
+};
+el('authCloseBtn').onclick = () => el('authPanel').classList.add('hidden');
+
+const setBtnLoading = (btn, text, loading) => {
+  if (loading) {
+    btn.dataset.origText = btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="sync-loader"></span> ${text}`;
+  } else {
+    btn.disabled = false;
+    btn.textContent = btn.dataset.origText || text;
+  }
+};
+
+el('loginBtn').onclick = async () => {
+  const email = el('authEmail').value.trim();
+  const pass = el('authPassword').value;
+  if (!email || !pass) {
+    say('Please enter both email and password.', true);
+    return;
+  }
+  const btn = el('loginBtn');
+  setBtnLoading(btn, 'Logging in...', true);
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+    say('Logged in successfully!');
+    el('authPanel').classList.add('hidden');
+  } catch (err) {
+    say(parseFirebaseError(err), true);
+  } finally {
+    setBtnLoading(btn, 'Log in', false);
+  }
+};
+
+el('signupBtn').onclick = async () => {
+  const email = el('authEmail').value.trim();
+  const pass = el('authPassword').value;
+  if (!email || !pass) {
+    say('Please enter both email and password.', true);
+    return;
+  }
+  if (pass.length < 6) {
+    say('Password must be at least 6 characters.', true);
+    return;
+  }
+  const btn = el('signupBtn');
+  setBtnLoading(btn, 'Creating...', true);
+  try {
+    await createUserWithEmailAndPassword(auth, email, pass);
+    say('Account created & logged in!');
+    el('authPanel').classList.add('hidden');
+  } catch (err) {
+    say(parseFirebaseError(err), true);
+  } finally {
+    setBtnLoading(btn, 'Create account', false);
+  }
+};
+
+el('googleBtn').onclick = async () => {
+  const btn = el('googleBtn');
+  setBtnLoading(btn, 'Opening Google...', true);
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+    say('Google sign in successful!');
+    el('authPanel').classList.add('hidden');
+  } catch (err) {
+    say(parseFirebaseError(err), true);
+  } finally {
+    setBtnLoading(btn, 'Continue with Google', false);
+  }
+};
+
+el('logoutBtn').onclick = async () => {
+  const btn = el('logoutBtn');
+  setBtnLoading(btn, 'Logging out...', true);
+  try {
+    await signOut(auth);
+    showBanner('Logged out from Cloud account. Running in local mode.', 'info');
+  } catch (err) {
+    showBanner('Logout error: ' + parseFirebaseError(err), 'error');
+  } finally {
+    setBtnLoading(btn, 'Log out', false);
+  }
+};
+
+el('resetPasswordBtn').onclick = async () => {
+  const email = el('authEmail').value.trim();
+  if (!email) {
+    say('Enter your email address in the field above to reset password.', true);
+    el('authEmail').focus();
+    return;
+  }
+  const btn = el('resetPasswordBtn');
+  setBtnLoading(btn, 'Sending email...', true);
+  try {
+    await sendPasswordResetEmail(auth, email);
+    say('Password reset email sent! Check your inbox.');
+  } catch (err) {
+    say(parseFirebaseError(err), true);
+  } finally {
+    setBtnLoading(btn, 'Reset password', false);
+  }
+};
+
+const syncBtn = el('syncHistoryBtn');
+if (syncBtn) {
+  syncBtn.onclick = async () => {
+    if (!auth.currentUser) {
+      showBanner('Please sign in to sync with Cloud Firestore.', 'warning');
+      el('authPanel').classList.remove('hidden');
+      return;
+    }
+    syncBtn.disabled = true;
+    syncBtn.innerHTML = '<span class="sync-loader"></span> Syncing...';
+    try {
+      await cloud.fetchUserData(auth.currentUser);
+    } finally {
+      syncBtn.disabled = false;
+      syncBtn.textContent = '🔄 Refresh Cloud';
+    }
+  };
+}
+</script>
+</body>
+</html>
